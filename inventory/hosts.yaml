@@ -1,0 +1,24 @@
+hosts:
+  ar1000v-1:
+    hostname: 10.16.1.250
+    platform: huawei_vrp
+    username: admin
+    password: Admin@123
+
+  ar1000v-2:
+    hostname: 10.16.1.246
+    platform: huawei_vrp
+    username: admin
+    password: Admin@123
+
+  ce6800:
+    hostname: 10.16.1.248
+    platform: huawei_vrpv8
+    username: admin1
+    password: w00Lw0rTh$
+
+  ne40e:
+    hostname: 10.16.1.247
+    platform: huawei_vrp
+    username: admin1
+    password: w00Lw0rTh$
