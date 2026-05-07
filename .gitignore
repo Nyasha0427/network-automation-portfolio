@@ -7,3 +7,4 @@ secrets.yaml
 *.log
 .vscode/settings.json
 .idea/
+02-device-connectivity/output/
