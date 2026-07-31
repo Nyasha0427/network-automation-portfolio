@@ -1,8 +1,11 @@
 import yaml
 import os
+from dotenv import load_dotenv
 from datetime import datetime
 from netmiko import ConnectHandler
 from netmiko.exceptions import NetmikoTimeoutException, NetmikoAuthenticationException
+
+load_dotenv()
 
 # Load inventory
 with open("inventory/hosts.yaml", "r") as f:
@@ -29,11 +32,13 @@ print(f"Devices: {len(inventory['hosts'])}\n")
 for hostname, data in inventory["hosts"].items():
     print(f"Connecting to {hostname} ({data['hostname']})...")
 
+    password = os.environ.get(data["password_env"], "changeme")
+
     device = {
         "device_type": data["platform"],
         "host": data["hostname"],
         "username": data["username"],
-        "password": data["password"],
+        "password": password,
         "timeout": 30,
     }
 
@@ -56,7 +61,6 @@ for hostname, data in inventory["hosts"].items():
                 except Exception as e:
                     output_lines.append(f"ERROR: {e}")
 
-            # Save to file
             filename = f"{output_dir}/{hostname}.txt"
             with open(filename, "w") as f:
                 f.write("\n".join(output_lines))

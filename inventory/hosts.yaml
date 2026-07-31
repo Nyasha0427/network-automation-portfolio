@@ -3,22 +3,22 @@ hosts:
     hostname: 10.16.1.250
     platform: huawei_vrp
     username: admin
-    password: REDACTED
+    password_env: DEVICE_PASSWORD_AR1
 
   ar1000v-2:
     hostname: 10.16.1.246
     platform: huawei_vrp
     username: admin
-    password: REDACTED
+    password_env: DEVICE_PASSWORD_AR1
 
   ce6800:
     hostname: 10.16.1.248
     platform: huawei_vrpv8
     username: admin1
-    password: REDACTED
+    password_env: DEVICE_PASSWORD_CE6800
 
   ne40e:
     hostname: 10.16.1.247
     platform: huawei_vrp
     username: admin1
-    password: REDACTED
+    password_env: DEVICE_PASSWORD_CE6800

@@ -8,12 +8,6 @@
 # 4. Collects interface config + state from each device
 # 5. Saves results to a structured JSON report
 # 6. Prints a summary table
-#
-# New concepts:
-# json module    — saves structured data to JSON file
-# try/except with specific exceptions — different handling
-#                  for different failure types
-# datetime       — timestamps for the report filename
 # ============================================================
 
 from ncclient import manager
@@ -23,7 +17,10 @@ import xml.etree.ElementTree as ET
 import yaml
 import json
 import os
+from dotenv import load_dotenv
 from datetime import datetime
+
+load_dotenv()
 
 # ============================================================
 # NAMESPACE MAP
@@ -35,8 +32,6 @@ NS = {
 
 # ============================================================
 # NETCONF CONNECTION DEFAULTS
-# These are the same for all devices — port, verify, timeout
-# Device-specific credentials come from the inventory file
 # ============================================================
 NETCONF_DEFAULTS = {
     "port":           830,
@@ -109,18 +104,6 @@ def parse_ietf_interfaces(root):
 
 # ============================================================
 # NETCONF COLLECTION FUNCTION
-# Connects to one device and collects interface data
-# Returns a dict with device info and interface list
-# Returns None if connection fails
-#
-# Specific exception handling:
-# SSHError            — device unreachable or port closed
-# AuthenticationError — wrong username/password
-# RPCError            — device rejected our NETCONF request
-# Exception           — any other unexpected error
-#
-# Each exception type gets a specific error message so you
-# know exactly why a device failed without guessing
 # ============================================================
 def collect_device(hostname, ip, username, password):
     conn_params = {
@@ -132,7 +115,6 @@ def collect_device(hostname, ip, username, password):
 
     try:
         with manager.connect(**conn_params) as conn:
-            # Get configuration
             config_resp = conn.get_config(
                 source="running",
                 filter=CONFIG_FILTER
@@ -143,12 +125,10 @@ def collect_device(hostname, ip, username, password):
                 ["ifPhyType", "ifMtu", "ifDescr"]
             )
 
-            # Get operational state
             state_resp = conn.get(filter=STATE_FILTER)
             state_root = ET.fromstring(state_resp.xml)
             state_data = parse_ietf_interfaces(state_root)
 
-            # Merge config and state
             interfaces = []
             for if_name, config in sorted(config_data.items()):
                 state = state_data.get(if_name, {})
@@ -186,12 +166,11 @@ def collect_device(hostname, ip, username, password):
 # ============================================================
 # MAIN
 # ============================================================
-# Load inventory
-with open("/home/netauto/network-automation/inventory/hosts.yaml") as f:
+with open("inventory/hosts.yaml") as f:
     inventory = yaml.safe_load(f)
 
 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-output_dir = "/home/netauto/network-automation/02-device-connectivity/output"
+output_dir = "02-device-connectivity/output"
 os.makedirs(output_dir, exist_ok=True)
 
 print(f"\nNETCONF Collection — {timestamp}")
@@ -202,11 +181,10 @@ report = {
     "devices":   [],
 }
 
-# Loop through all devices in inventory
 for hostname, data in inventory["hosts"].items():
     ip       = data["hostname"]
     username = data["username"]
-    password = data["password"]
+    password = os.environ.get(data["password_env"], "changeme")
 
     print(f"Connecting to {hostname} ({ip}) via NETCONF...")
     result = collect_device(hostname, ip, username, password)
@@ -218,7 +196,6 @@ for hostname, data in inventory["hosts"].items():
         print(f"  Status     : Success")
         print(f"  Interfaces : {iface_count} total, {up_count} up")
 
-        # Print interface table for this device
         print(f"\n  {'Interface':<20} {'Type':<12} {'Status':<8} {'MTU':<6} {'Description'}")
         print(f"  {'-'*65}")
         for iface in result["interfaces"]:
@@ -233,14 +210,12 @@ for hostname, data in inventory["hosts"].items():
     else:
         print(f"  Status : Failed — {result['error']}\n")
 
-# Save JSON report
 report_file = f"{output_dir}/netconf_report_{timestamp}.json"
 with open(report_file, "w") as f:
     json.dump(report, f, indent=2)
 
 print(f"Report saved to {report_file}")
 
-# Print summary
 print(f"\n{'='*50}")
 print(f"SUMMARY")
 print(f"{'='*50}")
