@@ -1,11 +1,22 @@
+from dotenv import load_dotenv
+import os
 from netmiko import ConnectHandler
 from netmiko.exceptions import NetmikoTimeoutException, NetmikoAuthenticationException
 
+load_dotenv()
+
+AR1_PASSWORD    = os.environ.get("DEVICE_PASSWORD_AR1", "changeme")
+CE6800_PASSWORD = os.environ.get("DEVICE_PASSWORD_CE6800", "changeme")
+
 devices = [
-    {"device_type": "huawei_vrp", "host": "10.16.1.250", "username": "admin", "password": "REDACTED", "name": "AR1000v-1"},
-    {"device_type": "huawei_vrp", "host": "10.16.1.246", "username": "admin", "password": "REDACTED", "name": "AR1000v-2"},
-    {"device_type": "huawei_vrpv8", "host": "10.16.1.248", "username": "admin1", "password": "REDACTED", "name": "CE6800"},
-    {"device_type": "huawei_vrp", "host": "10.16.1.247", "username": "admin1", "password": "REDACTED", "name": "NE40E"},
+    {"device_type": "huawei_vrp", "host": "10.16.1.250", "username": "admin",
+     "password": AR1_PASSWORD, "name": "AR1000v-1"},
+    {"device_type": "huawei_vrp", "host": "10.16.1.246", "username": "admin",
+     "password": AR1_PASSWORD, "name": "AR1000v-2"},
+    {"device_type": "huawei_vrpv8", "host": "10.16.1.248", "username": "admin1",
+     "password": CE6800_PASSWORD, "name": "CE6800"},
+    {"device_type": "huawei_vrp", "host": "10.16.1.247", "username": "admin1",
+     "password": CE6800_PASSWORD, "name": "NE40E"},
 ]
 
 for device in devices:
