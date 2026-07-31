@@ -1,43 +1,37 @@
 # ============================================================
 # SNMP POLLER — Final: Multi-device, writes to InfluxDB
 # ============================================================
-# New imports:
-# yaml         — loads our device inventory
-# datetime     — generates timestamps for each data point
-# influxdb_client — writes data points to InfluxDB
-# Point        — builds individual data points
-# WriteOptions — configures how data is written (synchronous)
-# ============================================================
+# NOTE: This script targets the legacy pysnmp 4.x synchronous API.
+# It is currently incompatible with modern pysnmp (7.x+) and Python 3.12+,
+# which removed the 'asyncore' module this version depends on.
+# TODO: migrate to pysnmp 7.x's async API.
 
 import yaml
+import os
+from dotenv import load_dotenv
 from datetime import datetime, timezone
 from pysnmp.hlapi import *
 from influxdb_client import InfluxDBClient, Point
 from influxdb_client.client.write_api import SYNCHRONOUS
 
+load_dotenv()
+
 # ============================================================
-# INFLUXDB CONNECTION SETTINGS
-# These must match what you configured during InfluxDB setup
-# BUCKET  — where data is stored (we created "telemetry")
-# ORG     — your organisation name (we used "netlab")
-# TOKEN   — the operator token you saved during setup
-# URL     — InfluxDB is running locally on Ubuntu port 8086
+# INFLUXDB CONNECTION SETTINGS — loaded from .env
 # ============================================================
 INFLUX_URL    = "http://localhost:8086"
-INFLUX_TOKEN  = "REDACTED=="
+INFLUX_TOKEN  = os.environ.get("INFLUX_TOKEN", "changeme")
 INFLUX_ORG    = "netlab"
 INFLUX_BUCKET = "telemetry"
 
 # ============================================================
-# SNMP SETTINGS
+# SNMP SETTINGS — loaded from .env
 # ============================================================
-COMMUNITY = "REDACTED"
+COMMUNITY = os.environ.get("SNMP_COMMUNITY", "changeme")
 PORT = 161
 
 # ============================================================
 # OID DEFINITIONS
-# Scalar OIDs — single value per device
-# Interface OIDs — one value per interface
 # ============================================================
 SCALAR_OIDS = {
     "sysName":   "1.3.6.1.2.1.1.5.0",
@@ -136,14 +130,11 @@ def collect_interfaces(ip):
 # ============================================================
 # LOAD INVENTORY
 # ============================================================
-with open("/home/netauto/network-automation/inventory/hosts.yaml", "r") as f:
+with open("inventory/hosts.yaml", "r") as f:
     inventory = yaml.safe_load(f)
 
 # ============================================================
 # CONNECT TO INFLUXDB
-# InfluxDBClient manages the HTTP connection to InfluxDB
-# write_api handles writing data points
-# SYNCHRONOUS means we wait for confirmation each write
 # ============================================================
 client = InfluxDBClient(
     url=INFLUX_URL,
@@ -154,11 +145,6 @@ write_api = client.write_api(write_options=SYNCHRONOUS)
 
 # ============================================================
 # MAIN COLLECTION LOOP
-# For each device in inventory:
-# 1. Get scalar values (hostname, uptime)
-# 2. Walk interface table
-# 3. Build InfluxDB Point objects
-# 4. Write points to InfluxDB
 # ============================================================
 timestamp = datetime.now(timezone.utc)
 print(f"\nCollection run: {timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}")
@@ -168,7 +154,6 @@ for hostname, data in inventory["hosts"].items():
     ip = data["hostname"]
     print(f"Polling {hostname} ({ip})...")
 
-    # Step 1 — get scalar values
     scalars = snmp_get(ip, SCALAR_OIDS)
     if not scalars:
         print(f"  FAILED — SNMP unreachable on {ip}\n")
@@ -179,19 +164,15 @@ for hostname, data in inventory["hosts"].items():
     print(f"  Device : {device_name}")
     print(f"  Uptime : {uptime}")
 
-    # Step 2 — collect interface table
     interfaces = collect_interfaces(ip)
     print(f"  Interfaces found: {len(interfaces)}")
 
-    # Step 3 — build and write InfluxDB points
     points = []
     for if_index, if_data in interfaces.items():
         if_name = if_data.get("ifDescr", f"if{if_index}")
         status_raw = if_data.get("ifOperStatus", "2")
         status = 1 if status_raw == "1" else 0
 
-        # Build one Point per interface
-        # Each Point becomes one row in InfluxDB
         point = (
             Point("interface_stats")
             .tag("device", device_name)
@@ -206,10 +187,8 @@ for hostname, data in inventory["hosts"].items():
         )
         points.append(point)
 
-    # Write all points for this device in one batch
     write_api.write(bucket=INFLUX_BUCKET, record=points)
     print(f"  Written {len(points)} points to InfluxDB\n")
 
-# Close the InfluxDB connection cleanly
 client.close()
 print("Collection complete.")
